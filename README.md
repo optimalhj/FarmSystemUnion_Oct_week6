@@ -144,3 +144,100 @@ void loop() {
   DHT11 센서도 또한 필자가 어드벤처디자인 과목에서 한 번 이용해보고 더 이상 사용하지 않았던 센서이기에, 이번 결과가 제대로 나올 수 있었을지 걱정을 많이 하였다.
 
   다행히 출력되는 모든 기기에서 정상적으로 수치를 잘 받을 수 있었고, 이를 위하여 코드를 다시 수정해보고 적절한 결과를 얻기 위해 노력하는 과정이 재미가 있었다.
+
+ ## 최종 코드
+ ```
+#include <UniversalTelegramBot.h>
+#include <WiFiClientSecure.h>
+#include <ESP8266WiFi.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+char message[100];
+
+#define DHTPIN D8
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+#define WIFI_SSID ""//와이파이 이름
+#define WIFI_PASSWORD ""//와이파이 비밀번호
+
+#define BOT_TOKEN "8140194638:AAGOpEGxQ9Qf3nxU6sLhEFPsJLk23sPn7Jw"  //bot token
+#define CHAT_ID "5561347315"     //Chat ID
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOT_TOKEN, client);
+
+void setup() {
+  Serial.begin(115200);
+
+  Serial.println("");
+  Serial.println("와이파이에 연결 중...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED){
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("");
+  Serial.println("와이파이 연결 완료.");
+  Serial.println();
+
+  configTime(0, 0, "pool.ntp.org");
+  time_t now = time(nullptr);
+  Serial.println("시간 동기화 중...");
+  while (now < 24 + 3600){
+    now = time(nullptr);
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("");
+  Serial.println("시간 동기화 완료.");
+  Serial.println("");
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Tem C : ");
+  lcd.setCursor(0, 1);
+  lcd.print("Hum % : ");
+
+  dht.begin();
+}
+
+void loop() {
+
+  float humi = dht.readHumidity();
+  float temp = dht.readTemperature();
+
+  Serial.print(temp);Serial.print("C ");
+  Serial.print(humi);Serial.println("%");
+
+  if (temp >= 30 || humi >= 70){
+    Serial.println("공부하기에 어렵습니다.");
+    lcd.setCursor(9, 0);
+    lcd.print(temp);
+    lcd.setCursor(9, 1);
+    lcd.print(humi);
+
+    if (WiFi.status() != WL_CONNECTED){
+      Serial.println("WiFi에 연결이 되어있지 않아 텔레그램으로 메시지를 전송할 수 없습니다.");
+    }
+    else {
+      sprintf(message, "공부하기에 어렵습니다. : %f C / %f %", temp, humi);
+      Serial.println("텔레그램을 통해 문자를 보냅니다.");
+      X509List cert(TELEGRAM_CERTIFICATE_ROOT);
+      client.setTrustAnchors(&cert);
+      bot.sendMessage(CHAT_ID, message, "");
+    }
+
+    for (int i = 0; i < 10; i++){
+      delay(1000);
+    }
+  }
+  delay(500);
+}
+ ```
